@@ -1,0 +1,22 @@
+"""
+# Structure du projet
+"""
+orthophoto-app/
+├── app/
+│   ├── __init__.py
+│   ├── routes.py
+│   ├── utils.py
+│   ├── static/
+│   │   ├── css/
+│   │   │   └── styles.css
+│   │   └── js/
+│   │       └── map.js
+│   └── templates/
+│       ├── index.html
+│       ├── map.html
+│       └── base.html
+├── uploads/
+├── Dockerfile
+├── docker-compose.yml
+├── requirements.txt
+└── run.py

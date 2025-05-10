@@ -1,0 +1,186 @@
+# app/templates/index.html
+"""
+{% extends 'base.html' %}
+
+{% block title %}Projection d'Orthophotos{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 offset-md-2">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h3 class="mb-0"><i class="fas fa-upload"></i> Télécharger vos orthophotos</h3>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> Téléchargez vos fichiers orthophotos au format TIF/TIFF pour les projeter sur une carte interactive.
+                </div>
+                
+                <form id="upload-form" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label for="formFileMultiple" class="form-label">Sélectionnez vos fichiers TIF/TIFF</label>
+                        <input class="form-control" type="file" id="formFileMultiple" name="files[]" multiple accept=".tif,.tiff" required>
+                    </div>
+                    
+                    <div class="mb-3 text-center">
+                        <button type="submit" class="btn btn-primary" id="submit-btn">
+                            <i class="fas fa-upload"></i> Télécharger et traiter
+                        </button>
+                    </div>
+                </form>
+                
+                <div id="upload-progress" class="progress mt-3 d-none">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width: 0%"></div>
+                </div>
+                
+                <div id="processing-indicator" class="text-center mt-3 d-none">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Traitement en cours...</span>
+                    </div>
+                    <p>Traitement des orthophotos en cours... Cela peut prendre quelques minutes.</p>
+                </div>
+                
+                <div id="result-container" class="mt-3 d-none">
+                    <div class="alert alert-success">
+                        <i class="fas fa-check-circle"></i> <span id="result-message"></span>
+                    </div>
+                    <div class="text-center">
+                        <a id="view-map-btn" href="#" class="btn btn-success">
+                            <i class="fas fa-map"></i> Voir la carte
+                        </a>
+                    </div>
+                </div>
+                
+                <div id="error-container" class="mt-3 d-none">
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle"></i> <span id="error-message"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mt-4">
+            <div class="card-header bg-secondary text-white">
+                <h4 class="mb-0"><i class="fas fa-info-circle"></i> À propos de cet outil</h4>
+            </div>
+            <div class="card-body">
+                <p>Cette application permet de :</p>
+                <ul>
+                    <li>Télécharger des orthophotos au format TIF/TIFF</li>
+                    <li>Reprojeter les images dans le système de coordonnées WGS84 (EPSG:4326)</li>
+                    <li>Superposer les orthophotos sur différents fonds de carte (Google Satellite, OpenStreetMap...)</li>
+                    <li>Visualiser interactivement les résultats sur une carte</li>
+                    <li>Dessiner et mesurer sur la carte</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('upload-form');
+    const submitBtn = document.getElementById('submit-btn');
+    const progressContainer = document.getElementById('upload-progress');
+    const progressBar = progressContainer.querySelector('.progress-bar');
+    const processingIndicator = document.getElementById('processing-indicator');
+    const resultContainer = document.getElementById('result-container');
+    const resultMessage = document.getElementById('result-message');
+    const viewMapBtn = document.getElementById('view-map-btn');
+    const errorContainer = document.getElementById('error-container');
+    const errorMessage = document.getElementById('error-message');
+    
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const fileInput = document.getElementById('formFileMultiple');
+        if (fileInput.files.length === 0) {
+            showError('Veuillez sélectionner au moins un fichier.');
+            return;
+        }
+        
+        const formData = new FormData(form);
+        
+        // Réinitialiser les états
+        hideError();
+        resultContainer.classList.add('d-none');
+        
+        // Afficher la barre de progression
+        progressContainer.classList.remove('d-none');
+        progressBar.style.width = '0%';
+        progressBar.setAttribute('aria-valuenow', 0);
+        
+        // Désactiver le bouton de soumission
+        submitBtn.disabled = true;
+        
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/upload', true);
+        
+        xhr.upload.onprogress = function(e) {
+            if (e.lengthComputable) {
+                const percentComplete = Math.round((e.loaded / e.total) * 100);
+                progressBar.style.width = percentComplete + '%';
+                progressBar.setAttribute('aria-valuenow', percentComplete);
+            }
+        };
+        
+        xhr.onload = function() {
+            // Cacher la barre de progression
+            progressContainer.classList.add('d-none');
+            
+            if (xhr.status === 200) {
+                const response = JSON.parse(xhr.responseText);
+                
+                // Afficher l'indicateur de traitement
+                processingIndicator.classList.remove('d-none');
+                
+                // Vérifier l'état toutes les 2 secondes
+                setTimeout(function() {
+                    // Dans un cas réel, on pourrait vérifier l'état du traitement
+                    // via une API, mais ici on suppose qu'il est terminé
+                    processingIndicator.classList.add('d-none');
+                    
+                    // Afficher le résultat
+                    resultMessage.textContent = `${response.files_count} orthophotos ont été traitées avec succès.`;
+                    viewMapBtn.href = response.map_url;
+                    resultContainer.classList.remove('d-none');
+                    
+                    // Réactiver le bouton de soumission
+                    submitBtn.disabled = false;
+                }, 3000);
+            } else {
+                processingIndicator.classList.add('d-none');
+                submitBtn.disabled = false;
+                
+                try {
+                    const response = JSON.parse(xhr.responseText);
+                    showError(response.error || 'Une erreur s\'est produite lors du traitement.');
+                } catch (e) {
+                    showError('Une erreur inattendue s\'est produite.');
+                }
+            }
+        };
+        
+        xhr.onerror = function() {
+            progressContainer.classList.add('d-none');
+            processingIndicator.classList.add('d-none');
+            submitBtn.disabled = false;
+            showError('Une erreur de connexion s\'est produite.');
+        };
+        
+        xhr.send(formData);
+    });
+    
+    function showError(message) {
+        errorMessage.textContent = message;
+        errorContainer.classList.remove('d-none');
+    }
+    
+    function hideError() {
+        errorContainer.classList.add('d-none');
+    }
+});
+</script>
+{% endblock %}
